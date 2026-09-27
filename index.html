@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تحدي المسار الصحي - مسابقة القمة التعليمية</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Arabic (Cairo & Readex Pro) -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Readex+Pro:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        cairo: ['Cairo', 'sans-serif'],
+                        readex: ['Readex Pro', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            dark: '#080D1A',
+                            navy: '#0F172A',
+                            card: '#1E293B',
+                            teal: '#06D6A0',
+                            cyan: '#118AB2',
+                            gold: '#FFD166',
+                            coral: '#EF476F',
+                        }
+                    },
+                    animation: {
+                        'bounce-short': 'bounceShort 0.4s ease-in-out',
+                        'float-up': 'floatUp 1s ease-out forwards',
+                        'star-spin': 'starSpin 3s linear infinite',
+                    },
+                    keyframes: {
+                        bounceShort: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-8px)' }
+                        },
+                        floatUp: {
+                            '0%': { opacity: '0', transform: 'translateY(15px) scale(0.8)' },
+                            '20%': { opacity: '1', transform: 'translateY(0) scale(1.1)' },
+                            '80%': { opacity: '1', transform: 'translateY(-20px) scale(1)' },
+                            '100%': { opacity: '0', transform: 'translateY(-40px) scale(0.9)' }
+                        },
+                        starSpin: {
+                            '0%': { transform: 'rotate(0deg)' },
+                            '100%': { transform: 'rotate(360deg)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            touch-action: manipulation; /* Removes 300ms click delay on mobile */
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #060A14;
+            color: #F8FAFC;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        /* Animated Background Canvas */
+        #bgCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* High Performance CSS Cards - Solid Semi-Transparent for Maximum FPS without Blur Overhead */
+        .solid-panel {
+            background-color: rgba(15, 23, 42, 0.94);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            transform: translateZ(0);
+        }
+
+        .solid-button {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+            transform: translateZ(0);
+        }
+
+        .solid-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            border-color: #06D6A0;
+        }
+
+        .solid-button:active:not(:disabled) {
+            transform: translateY(1px) scale(0.98);
+        }
+
+        /* Option Item Styles */
+        .option-card {
+            background: rgba(30, 41, 59, 0.85);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+            transform: translateZ(0);
+        }
+
+        .option-card:hover:not(:disabled) {
+            border-color: #06D6A0;
+            background: rgba(30, 41, 59, 0.95);
+        }
+
+        .option-selected {
+            background: rgba(245, 158, 11, 0.25) !important;
+            border-color: #F59E0B !important;
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
+        }
+
+        .option-correct {
+            background: rgba(16, 185, 129, 0.3) !important;
+            border-color: #10B981 !important;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+        }
+
+        .option-wrong {
+            background: rgba(239, 68, 68, 0.3) !important;
+            border-color: #EF4444 !important;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+        }
+
+        /* Floating Score Popups */
+        .score-float {
+            position: fixed;
+            pointer-events: none;
+            z-index: 100;
+            font-weight: 900;
+            font-family: 'Readex Pro', sans-serif;
+            color: #FFD166;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); }
+        ::-webkit-scrollbar-thumb { background: #118AB2; border-radius: 10px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative overflow-x-hidden text-slate-100 selection:bg-teal-500 selection:text-slate-900">
+
+    <!-- Background Animated Canvas -->
+    <canvas id="bgCanvas"></canvas>
+
+    <!-- TOP NAVIGATION BAR -->
+    <header class="relative z-20 w-full px-4 py-3 border-b border-slate-800/80 bg-slate-950/80">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            
+            <!-- Logo & Brand Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-400 to-cyan-500 flex items-center justify-center shadow-md text-slate-950 text-xl font-black">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-extrabold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-cyan-300 to-amber-300">
+                        تحدي المسار الصحي
+                    </h1>
+                    <p class="text-[11px] text-slate-400 font-medium hidden sm:block">مسابقة التوعية وبناء العادات الصحية بالمرحلة الثانوية</p>
+                </div>
+            </div>
+
+            <!-- Top Controls (Coins, Streak, Sound, Fullscreen) -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                
+                <!-- Answer Streak Badge -->
+                <div id="streakContainer" class="hidden sm:flex items-center gap-1.5 bg-rose-500/10 border border-rose-500/30 px-2.5 py-1 rounded-full text-xs font-bold text-rose-400">
+                    <i class="fa-solid fa-fire text-rose-500 animate-pulse"></i>
+                    <span>سلسلة:</span>
+                    <span id="streakCount" class="font-readex text-amber-300">0</span>
+                </div>
+
+                <!-- Coins Balance Badge -->
+                <div id="coinsContainer" class="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-full shadow-inner transition-transform duration-200">
+                    <i class="fa-solid fa-coins text-amber-400 text-base"></i>
+                    <span class="text-xs text-slate-300 font-semibold hidden md:inline">الرصيد:</span>
+                    <span id="coinBalance" class="text-amber-300 font-black font-readex text-sm sm:text-base">100</span>
+                    <span class="text-xs text-amber-400 font-bold">كوينز</span>
+                </div>
+
+                <!-- Sound Toggle Button -->
+                <button id="soundBtn" title="كتم/تشغيل الصوت" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl solid-button flex items-center justify-center text-slate-300 hover:text-teal-400">
+                    <i id="soundIcon" class="fa-solid fa-volume-high"></i>
+                </button>
+
+                <!-- Fullscreen Toggle Button -->
+                <button id="fullscreenBtn" title="تكامل الشاشة" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl solid-button flex items-center justify-center text-slate-300 hover:text-cyan-400">
+                    <i id="fullscreenIcon" class="fa-solid fa-expand"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="relative z-10 flex-grow max-w-7xl w-full mx-auto p-3 sm:p-6 flex flex-col justify-center">
+
+        <!-- ================= START SCREEN ================= -->
+        <div id="startScreen" class="solid-panel rounded-3xl p-6 sm:p-10 text-center max-w-3xl mx-auto shadow-2xl">
+            <div class="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-5 rounded-3xl bg-gradient-to-tr from-teal-400 via-cyan-500 to-blue-600 flex items-center justify-center text-4xl sm:text-5xl text-slate-950 shadow-lg shadow-teal-500/30">
+                <i class="fa-solid fa-heart-circle-check"></i>
+            </div>
+
+            <h2 class="text-2xl sm:text-4xl font-black mb-3 text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-teal-300">
+                مرحباً بك في تحدي المسار الصحي!
+            </h2>
+            <p class="text-slate-300 text-xs sm:text-base leading-relaxed mb-6 max-w-xl mx-auto font-medium">
+                اختبر معلوماتك الصحية والتغذوية عبر 10 أسئلة مشوقة مقتبسة من الدليل الصحي التوعوي لطلاب المرحلة الثانوية. اجمع الكوينز واستخدم وسائل المساعدة للوصول إلى وسام القمة الصحي!
+            </p>
+
+            <!-- Overview Rules -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8 text-right">
+                <div class="bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800 flex items-start gap-3">
+                    <div class="text-teal-400 text-lg mt-0.5"><i class="fa-solid fa-circle-question"></i></div>
+                    <div>
+                        <h4 class="font-bold text-slate-200 text-xs sm:text-sm">10 أسئلة تصاعدية</h4>
+                        <p class="text-[11px] text-slate-400">كل إجابة صحيحة تمنحك كوينز ونقاطاً جديدة</p>
+                    </div>
+                </div>
+                <div class="bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800 flex items-start gap-3">
+                    <div class="text-amber-400 text-lg mt-0.5"><i class="fa-solid fa-scissors"></i></div>
+                    <div>
+                        <h4 class="font-bold text-slate-200 text-xs sm:text-sm">خاصية 50:50</h4>
+                        <p class="text-[11px] text-slate-400">حذف إجابتين خاطئتين مجاناً لمرة واحدة</p>
+                    </div>
+                </div>
+                <div class="bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800 flex items-start gap-3">
+                    <div class="text-cyan-400 text-lg mt-0.5"><i class="fa-solid fa-coins"></i></div>
+                    <div>
+                        <h4 class="font-bold text-slate-200 text-xs sm:text-sm">شراء المساعدات</h4>
+                        <p class="text-[11px] text-slate-400">استخدم رصيد الكوينز للتلميح أو تغيير السؤال</p>
+                    </div>
+                </div>
+            </div>
+
+            <button id="startQuizBtn" class="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-teal-400 via-emerald-500 to-cyan-500 text-slate-950 font-black text-lg sm:text-xl rounded-2xl shadow-xl shadow-teal-500/20 hover:scale-105 active:scale-95 transition-all duration-200">
+                <i class="fa-solid fa-play ml-2"></i> ابدأ التحدي الآن
+            </button>
+        </div>
+
+        <!-- ================= QUIZ GAME SCREEN ================= -->
+        <div id="quizScreen" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+            <!-- LEFT/MAIN COLUMN: QUESTION & OPTIONS -->
+            <div class="lg:col-span-8 flex flex-col gap-5">
+
+                <!-- Question Header Bar -->
+                <div class="solid-panel p-4 rounded-3xl flex flex-wrap items-center justify-between gap-3">
+                    <!-- Progress Level -->
+                    <div class="flex items-center gap-3">
+                        <span class="w-9 h-9 rounded-xl bg-teal-500/20 text-teal-400 font-black text-base flex items-center justify-center border border-teal-500/30 font-readex">
+                            <span id="currentQNum">1</span>
+                        </span>
+                        <div>
+                            <span class="text-[11px] text-slate-400 font-bold block">السؤال الحالي</span>
+                            <span id="questionPrizeTitle" class="text-amber-400 font-bold text-xs sm:text-sm">الجائزة: 1,000 نقطة</span>
+                        </div>
+                    </div>
+
+                    <!-- Lifelines Bar -->
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <!-- 50:50 Lifeline -->
+                        <button id="lifelineFiftyBtn" class="solid-button px-3 py-2 rounded-xl text-xs font-bold text-slate-200 hover:text-amber-300 flex items-center gap-1.5 border-amber-500/30">
+                            <i class="fa-solid fa-scissors text-amber-400"></i>
+                            <span>حذف إجابتين</span>
+                        </button>
+
+                        <!-- Hint Lifeline (using coins) -->
+                        <button id="lifelineHintBtn" class="solid-button px-3 py-2 rounded-xl text-xs font-bold text-slate-200 hover:text-cyan-300 flex items-center gap-1.5 border-cyan-500/30">
+                            <i class="fa-solid fa-lightbulb text-yellow-300"></i>
+                            <span>تلميح</span>
+                            <span class="bg-cyan-950/80 text-cyan-300 px-1.5 py-0.5 rounded text-[10px] font-readex border border-cyan-500/30">50 كوينز</span>
+                        </button>
+
+                        <!-- Swap Question Lifeline (using coins) -->
+                        <button id="lifelineSwapBtn" class="solid-button px-3 py-2 rounded-xl text-xs font-bold text-slate-200 hover:text-purple-300 flex items-center gap-1.5 border-purple-500/30">
+                            <i class="fa-solid fa-arrows-rotate text-purple-400"></i>
+                            <span>تغيير</span>
+                            <span class="bg-purple-950/80 text-purple-300 px-1.5 py-0.5 rounded text-[10px] font-readex border border-purple-500/30">100 كوينز</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Main Question Card -->
+                <div class="solid-panel p-5 sm:p-7 rounded-3xl relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-2 h-full bg-gradient-to-b from-teal-400 via-cyan-500 to-blue-500"></div>
+
+                    <!-- Category Tag -->
+                    <div id="questionCategory" class="inline-block px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-teal-300 border border-slate-700 mb-3">
+                        <i class="fa-solid fa-leaf ml-1"></i> الصحة والتغذية
+                    </div>
+
+                    <!-- Question Text -->
+                    <h3 id="questionText" class="text-lg sm:text-2xl font-extrabold text-slate-100 leading-snug min-h-[65px] flex items-center">
+                        جاري تحميل السؤال...
+                    </h3>
+
+                    <!-- Hint Display Box (Hidden by default) -->
+                    <div id="hintBox" class="hidden mt-4 p-3.5 rounded-2xl bg-cyan-950/70 border border-cyan-500/40 text-cyan-200 text-xs sm:text-sm flex items-start gap-2.5">
+                        <i class="fa-solid fa-circle-info text-cyan-400 text-base mt-0.5"></i>
+                        <div>
+                            <strong class="block font-bold mb-0.5">تلميح صحي:</strong>
+                            <span id="hintText">...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Answer Choices (4 options) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="optionsContainer">
+                    <!-- Options injected via JS -->
+                </div>
+
+                <!-- Action Button Bar (Confirm Answer) -->
+                <div class="flex items-center justify-between gap-4 mt-1">
+                    <button id="confirmBtn" disabled class="w-full py-4 rounded-2xl font-black text-base sm:text-lg transition-all duration-200 opacity-50 cursor-not-allowed bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md">
+                        تأكيد الإجابة النهائية
+                    </button>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: PROGRESS LADDER -->
+            <div class="lg:col-span-4 solid-panel p-4 rounded-3xl">
+                <div class="flex items-center justify-between mb-3 pb-2.5 border-b border-slate-800">
+                    <h4 class="font-black text-slate-200 text-sm sm:text-base flex items-center gap-2">
+                        <i class="fa-solid fa-trophy text-amber-400"></i> سلم الجوائز والمسار
+                    </h4>
+                    <span class="text-xs text-teal-400 font-bold">10 مستويات</span>
+                </div>
+
+                <!-- Prize Steps List -->
+                <div id="prizeLadder" class="flex flex-col gap-1 font-readex text-xs sm:text-sm">
+                    <!-- Levels generated dynamically -->
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================= MODAL OVERLAYS ================= -->
+        
+        <!-- RESULT MODAL (Correct / Wrong / Complete) -->
+        <div id="resultModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85">
+            <div class="solid-panel p-6 sm:p-8 rounded-3xl max-w-lg w-full text-center relative overflow-hidden shadow-2xl border-slate-700 animate-bounce-short">
+                
+                <div id="modalIconBg" class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 rounded-3xl flex items-center justify-center text-3xl sm:text-4xl shadow-lg">
+                    <i id="modalIcon" class="fa-solid"></i>
+                </div>
+
+                <h3 id="modalTitle" class="text-xl sm:text-3xl font-black mb-2"></h3>
+                <p id="modalSubtitle" class="text-slate-300 text-xs sm:text-sm mb-5 font-medium leading-relaxed"></p>
+
+                <!-- Explanation Box -->
+                <div id="modalExplanation" class="mb-5 p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 text-right text-xs sm:text-sm text-slate-300 leading-relaxed">
+                    <strong class="text-teal-400 block mb-1 font-bold"><i class="fa-solid fa-book-medical ml-1"></i> المعلومة الصحية المستفادة:</strong>
+                    <span id="explanationText"></span>
+                </div>
+
+                <button id="modalNextBtn" class="w-full py-3.5 bg-gradient-to-r from-teal-400 to-cyan-500 text-slate-950 font-extrabold text-sm sm:text-base rounded-2xl shadow-lg hover:scale-[1.01] active:scale-[0.99] transition-transform">
+                    الانتقال للسؤال التالي
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="relative z-10 w-full py-2.5 text-center text-[11px] text-slate-500 border-t border-slate-900 bg-slate-950/80">
+        مقتبس من الدليل التوعوي لنمط الحياة الصحي لطلاب المرحلة الثانوية &copy; 2026
+    </footer>
+
+    <script>
+        /* ==========================================================================
+           1. QUESTIONS DATA (Directly extracted from healthy_lifestyle.pptx)
+           ========================================================================== */
+        const quizQuestions = [
+            {
+                id: 1,
+                category: "العادات الرقمية والشاشات",
+                question: "ما هو الحد الأقصى الموصى به لوقت الشاشة الترفيهي يومياً للطلاب وفق المنظمات الصحية؟",
+                options: [
+                    "أقل من ساعتين يومياً",
+                    "4 ساعات يومياً",
+                    "6 ساعات يومياً",
+                    "لا يوجد حد محدد"
+                ],
+                correct: 0,
+                prize: "1,000",
+                coinsReward: 30,
+                hint: "توصي منظمة الصحة العالمية بوقف الشاشات والتأكد من عدم مجاوزة ساعتين للترفيه وتخصيص الباقي للنشاط والحركة.",
+                explanation: "المصدر (شريحة 14): الحد من وقت الشاشة الترفيهي إلى أقل من ساعتين يومياً، مع أخذ استراحة 5 دقائق حركة كل 30-45 دقيقة."
+            },
+            {
+                id: 2,
+                category: "النشاط البدني",
+                question: "كم دقيقة من النشاط البدني المعتدل إلى الشديد يحتاجها طالب المرحلة الثانوية يومياً؟",
+                options: [
+                    "15 دقيقة فقط",
+                    "30 دقيقة",
+                    "60 دقيقة يومياً",
+                    "120 دقيقة"
+                ],
+                correct: 2,
+                prize: "2,500",
+                coinsReward: 40,
+                hint: "ساعة واحدة من الحركة يومياً كافية لتقوية العظام والعضلات وتقليل التوتر وتحسين النوم.",
+                explanation: "المصدر (شريحة 12): يحتاج المراهق إلى 60 دقيقة يومياً من النشاط البدني المعتدل إلى الشديد لتعزيز الصحة والتركيز."
+            },
+            {
+                id: 3,
+                category: "التغذية المتوازنة",
+                question: "كم تشكل نسبة الخضروات في طبق الغذاء المتوازن الموصى به من وزارة الصحة و MyPlate؟",
+                options: [
+                    "10%",
+                    "20%",
+                    "30%",
+                    "40%"
+                ],
+                correct: 3,
+                prize: "5,000",
+                coinsReward: 50,
+                hint: "الخضروات تمثل الحصة الأكبر في الطبق الصحي لأنها غنية بالألياف والفيتامينات وقليلة السعرات.",
+                explanation: "المصدر (شريحة 5): يتقسم الطبق الصحي إلى: الخضروات 40%، الحبوب 30%، البروتين 20%، والفواكه 10%."
+            },
+            {
+                id: 4,
+                category: "النظافة الشخصية",
+                question: "ما هي المدة الزمنية الدنيا الموصى بها لغسل اليدين بالماء والصابون لمنع انتشار الجراثيم؟",
+                options: [
+                    "5 ثوانٍ",
+                    "10 ثوانٍ",
+                    "20 ثانية على الأقل",
+                    "60 ثانية"
+                ],
+                correct: 2,
+                prize: "10,000",
+                coinsReward: 60,
+                hint: "المدة تعادل فرك ظهر الكفين والتنظيف بين الأصابع وتحت الأظافر بعناية.",
+                explanation: "المصدر (شريحة 18): يجب غسل اليدين بالماء والصابون لمدة 20 ثانية على الأقل قبل الأكل وبعد الحمام والعطس."
+            },
+            {
+                id: 5,
+                category: "جودة النوم والصحة",
+                question: "كم عدد ساعات النوم التي يحتاجها طلاب المرحلة الثانوية (المراهقون) يومياً لضمان النمو والتركيز؟",
+                options: [
+                    "5 - 6 ساعات",
+                    "6.5 - 7.5 ساعات",
+                    "8.5 - 9 ساعات",
+                    "11 - 12 ساعة"
+                ],
+                correct: 2,
+                prize: "25,000",
+                coinsReward: 80,
+                hint: "قلة النوم تضعف المناعة والتركيز؛ والمراهق يحتاج ساعات أكثر من البالغين لدعم نمو الدماغ والجسم.",
+                explanation: "المصدر (شريحة 15): توصي مراكز CDC بأن يحصل المراهق على 8.5 إلى 9 ساعات نوم يومياً لتحسين الذاكرة والأداء المدرسي."
+            },
+            {
+                id: 6,
+                category: "الماء والترطيب",
+                question: "ما هو عدد أكواب الماء الموصى بشربها يومياً في نمط الحياة الصحي وتجنب المشروبات الغازية؟",
+                options: [
+                    "2 - 3 أكواب",
+                    "4 - 5 أكواب",
+                    "6 - 8 أكواب",
+                    "12 - 15 كوباً"
+                ],
+                correct: 2,
+                prize: "50,000",
+                coinsReward: 100,
+                hint: "الماء هو الخيار الأفضل للطاقة والانتعاش بدلاً من العصائر المحلاة ومشروبات الطاقة.",
+                explanation: "المصدر (شريحة 10): تُوصي وزارة الصحة بـ 6-8 أكواب ماء يومياً والحد التام من المشروبات الغازية ومشروبات الطاقة."
+            },
+            {
+                id: 7,
+                category: "المجموعات الغذائية",
+                question: "ما هو خيار الحبوب الأفضل لتزويد الجسم بطاقة مستدامة وألياف تحسن الهضم وتمنح الشبع؟",
+                options: [
+                    "الخبز الأبيض والمعجنات",
+                    "الحبوب الكاملة كـالخبز الأسمر والأرز البني",
+                    "البسكويت المقرمش السكري",
+                    "المكرونة المكررة الشفافة"
+                ],
+                correct: 1,
+                prize: "100,000",
+                coinsReward: 120,
+                hint: "ابتعد عن الحبوب المكررة واختر الحبوب ذات القشرة الكاملة الغنية بالفيتامينات والألياف.",
+                explanation: "المصدر (شريحة 8): الحبوب الكاملة كالخبز الأسمر والأرز البني والمكرونة الكاملة هي مصدر الطاقة الرئيسي والصحي."
+            },
+            {
+                id: 8,
+                category: "إدارة الضغوط والاسترخاء",
+                question: "في تقنية التنفس الموصى بها للاسترخاء (4-7-8)، كم ثانية يتم فيها حبس النفس؟",
+                options: [
+                    "4 ثوانٍ",
+                    "7 ثوانٍ",
+                    "8 ثوانٍ",
+                    "10 ثوانٍ"
+                ],
+                correct: 1,
+                prize: "250,000",
+                coinsReward: 150,
+                hint: "التقنية تعتمد على: 4 ثوانٍ شهيق، ثم حبس النفس لعدة ثوانٍ، ثم 8 ثوانٍ زفير بطيء.",
+                explanation: "المصدر (شريحة 21): تقنية التنفس (4-7-8): 4 ثوانٍ شهيق، 7 ثوانٍ حبس النفس، 8 ثوانٍ زفير تهدئ الجهاز العصبي."
+            },
+            {
+                id: 9,
+                category: "صحة الفم والأسنان",
+                question: "ما هي التوصية الصحية المعتمدة لتنظيف الأسنان بالفرشاة يومياً للوقاية من التسوس؟",
+                options: [
+                    "مرة واحدة أسبوعياً",
+                    "مرتان يومياً لمدة دقيقتين",
+                    "5 مرات يومياً لمدة 10 دقائق",
+                    "قبل النوم فقط لمدة 30 ثانية"
+                ],
+                correct: 1,
+                prize: "500,000",
+                coinsReward: 200,
+                hint: "التنظيف يكون صباحاً ومساءً باستخدام معجون يحتوي على الفلورايد.",
+                explanation: "المصدر (شريحة 19): يُنصح باستخدام الفرشاة مرتين يومياً (صباحاً ومساءً) لمدة دقيقتين مع استخدام خيط الأسنان."
+            },
+            {
+                id: 10,
+                category: "الوقاية والتعزيز الصحي",
+                question: "كم عدد الحصص اليومية الموصى بها من الفواكه والخضروات مجتمعة (أو ما يعادل 400 غرام)؟",
+                options: [
+                    "حصة واحدة",
+                    "حصتان",
+                    "5 حصص يومياً",
+                    "10 حصص يومياً"
+                ],
+                correct: 2,
+                prize: "1,000,000",
+                coinsReward: 300,
+                hint: "هذه الحصص تعزز المناعة وتمنح طاقة طبيعية بدون سكريات مضافة وفق منظمة الصحة العالمية.",
+                explanation: "المصدر (شريحة 6 و7): توصي منظمة الصحة العالمية بـ 5 حصص يومياً (400 غرام) من الخضروات والفواكه للحماية من الأمراض."
+            }
+        ];
+
+        // Replacement question for Swap lifeline
+        const backupQuestion = {
+            id: 99,
+            category: "العادات الضارة",
+            question: "أي من المشروبات التالية يُنصح بفرملتها وتجنبها لحماية العظام والأسنان والوقاية من السمنة؟",
+            options: [
+                "الماء النقي",
+                "المشروبات الغازية ومشروبات الطاقة",
+                "الحليب قليل الدسم",
+                "العصائر الطبيعية الطازجة"
+            ],
+            correct: 1,
+            prize: "بديل",
+            coinsReward: 50,
+            hint: "هذه المشروبات عالية السكر والسعرات وتسبب هشاشة وتسوس الأسنان.",
+            explanation: "المصدر (شريحة 10 و 22): المشروبات الغازية ومشروبات الطاقة مليئة بالسكر المضاف والسعرات وتزيد خطر السمنة والتسوس."
+        };
+
+        /* ==========================================================================
+           2. LIGHTWEIGHT WEB AUDIO SYNTHESIZER
+           ========================================================================== */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+            }
+
+            playClick() {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(650, this.ctx.currentTime);
+                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.04);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.04);
+            }
+
+            playCorrect() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+                    gain.gain.setValueAtTime(0.15, now + idx * 0.06);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.25);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.06);
+                    osc.stop(now + idx * 0.06 + 0.25);
+                });
+            }
+
+            playWrong() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.exponentialRampToValueAtTime(110, now + 0.3);
+                gain.gain.setValueAtTime(0.18, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+
+            playCoin() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc1 = this.ctx.createOscillator();
+                const osc2 = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc1.type = 'sine';
+                osc2.type = 'sine';
+                osc1.frequency.setValueAtTime(987.77, now);
+                osc2.frequency.setValueAtTime(1318.51, now + 0.06);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc1.start(now);
+                osc2.start(now + 0.06);
+                osc1.stop(now + 0.25);
+                osc2.stop(now + 0.25);
+            }
+
+            playVictory() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const melody = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98];
+                melody.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                    gain.gain.setValueAtTime(0.2, now + idx * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.4);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.1);
+                    osc.stop(now + idx * 0.1 + 0.4);
+                });
+            }
+        }
+
+        const sounds = new SoundEngine();
+
+        /* ==========================================================================
+           3. GAME STATE MANAGEMENT
+           ========================================================================== */
+        let state = {
+            currentQIndex: 0,
+            selectedOption: null,
+            coins: 100,
+            streak: 0,
+            usedFiftyFifty: false,
+            usedHint: false,
+            usedSwap: false,
+            disabledOptions: [],
+            isAnswerConfirmed: false,
+            questionsList: [...quizQuestions]
+        };
+
+        /* ==========================================================================
+           4. DOM ELEMENTS
+           ========================================================================== */
+        const startScreen = document.getElementById('startScreen');
+        const quizScreen = document.getElementById('quizScreen');
+        const startQuizBtn = document.getElementById('startQuizBtn');
+        const coinBalanceEl = document.getElementById('coinBalance');
+        const streakContainer = document.getElementById('streakContainer');
+        const streakCountEl = document.getElementById('streakCount');
+        const currentQNumEl = document.getElementById('currentQNum');
+        const questionPrizeTitleEl = document.getElementById('questionPrizeTitle');
+        const questionCategoryEl = document.getElementById('questionCategory');
+        const questionTextEl = document.getElementById('questionText');
+        const optionsContainer = document.getElementById('optionsContainer');
+        const confirmBtn = document.getElementById('confirmBtn');
+        const prizeLadderEl = document.getElementById('prizeLadder');
+        const hintBox = document.getElementById('hintBox');
+        const hintText = document.getElementById('hintText');
+
+        // Lifelines
+        const lifelineFiftyBtn = document.getElementById('lifelineFiftyBtn');
+        const lifelineHintBtn = document.getElementById('lifelineHintBtn');
+        const lifelineSwapBtn = document.getElementById('lifelineSwapBtn');
+
+        // Modal
+        const resultModal = document.getElementById('resultModal');
+        const modalIconBg = document.getElementById('modalIconBg');
+        const modalIcon = document.getElementById('modalIcon');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalSubtitle = document.getElementById('modalSubtitle');
+        const modalExplanation = document.getElementById('modalExplanation');
+        const explanationText = document.getElementById('explanationText');
+        const modalNextBtn = document.getElementById('modalNextBtn');
+
+        // Top Controls
+        const soundBtn = document.getElementById('soundBtn');
+        const soundIcon = document.getElementById('soundIcon');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const fullscreenIcon = document.getElementById('fullscreenIcon');
+
+        /* ==========================================================================
+           5. GAME EVENT LISTENERS & LOGIC
+           ========================================================================== */
+        startQuizBtn.addEventListener('click', () => {
+            sounds.playClick();
+            startScreen.classList.add('hidden');
+            quizScreen.classList.remove('hidden');
+            initGame();
+        });
+
+        soundBtn.addEventListener('click', () => {
+            sounds.muted = !sounds.muted;
+            if (sounds.muted) {
+                soundIcon.className = "fa-solid fa-volume-xmark text-rose-400";
+            } else {
+                soundIcon.className = "fa-solid fa-volume-high text-slate-300";
+                sounds.playClick();
+            }
+        });
+
+        fullscreenBtn.addEventListener('click', () => {
+            sounds.playClick();
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+                fullscreenIcon.className = "fa-solid fa-compress";
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                    fullscreenIcon.className = "fa-solid fa-expand";
+                }
+            }
+        });
+
+        function updateCoins(amount, eventLocation) {
+            state.coins += amount;
+            if (state.coins < 0) state.coins = 0;
+            coinBalanceEl.textContent = state.coins.toLocaleString('ar-EG');
+            
+            // Visual floating reward element on positive coin gain
+            if (amount > 0 && eventLocation) {
+                showFloatingReward(`+${amount} 🪙`, eventLocation.x, eventLocation.y);
+            }
+        }
+
+        function updateStreak(isSuccess) {
+            if (isSuccess) {
+                state.streak++;
+                streakCountEl.textContent = state.streak;
+                if (state.streak >= 2) {
+                    streakContainer.classList.remove('hidden');
+                }
+            } else {
+                state.streak = 0;
+                streakCountEl.textContent = '0';
+                streakContainer.classList.add('hidden');
+            }
+        }
+
+        function showFloatingReward(text, x, y) {
+            const floatEl = document.createElement('div');
+            floatEl.className = 'score-float animate-float-up text-lg';
+            floatEl.style.left = `${x || window.innerWidth / 2}px`;
+            floatEl.style.top = `${y || window.innerHeight / 2}px`;
+            floatEl.textContent = text;
+            document.body.appendChild(floatEl);
+            setTimeout(() => floatEl.remove(), 1000);
+        }
+
+        function initGame() {
+            state.currentQIndex = 0;
+            state.selectedOption = null;
+            state.streak = 0;
+            state.usedFiftyFifty = false;
+            state.usedHint = false;
+            state.usedSwap = false;
+            state.isAnswerConfirmed = false;
+            state.questionsList = [...quizQuestions];
+
+            updateStreak(false);
+            updateCoins(0);
+            renderPrizeLadder();
+            loadQuestion(state.currentQIndex);
+        }
+
+        /* ==========================================================================
+           6. RENDER LADDER
+           ========================================================================== */
+        function renderPrizeLadder() {
+            prizeLadderEl.innerHTML = '';
+            for (let i = state.questionsList.length - 1; i >= 0; i--) {
+                const q = state.questionsList[i];
+                const levelNum = i + 1;
+                const isCurrent = i === state.currentQIndex;
+                const isPassed = i < state.currentQIndex;
+
+                const stepDiv = document.createElement('div');
+                stepDiv.className = `flex items-center justify-between p-2 sm:p-2.5 rounded-xl border transition-all ${
+                    isCurrent 
+                        ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-extrabold shadow-sm' 
+                        : isPassed 
+                            ? 'bg-slate-900/50 border-teal-500/30 text-teal-400 font-semibold opacity-75' 
+                            : 'bg-slate-950/40 border-slate-800/80 text-slate-500'
+                }`;
+
+                stepDiv.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="w-5 h-5 rounded ${isCurrent ? 'bg-amber-400 text-slate-950' : isPassed ? 'bg-teal-500/20 text-teal-300' : 'bg-slate-800 text-slate-400'} flex items-center justify-center text-[10px] font-bold">
+                            ${levelNum}
+                        </span>
+                        <span>مستوى ${levelNum}</span>
+                    </div>
+                    <span class="font-black">${q.prize} نقطة</span>
+                `;
+                prizeLadderEl.appendChild(stepDiv);
+            }
+        }
+
+        /* ==========================================================================
+           7. LOAD & RENDER QUESTION
+           ========================================================================== */
+        function loadQuestion(index) {
+            const q = state.questionsList[index];
+            state.selectedOption = null;
+            state.disabledOptions = [];
+            state.isAnswerConfirmed = false;
+
+            hintBox.classList.add('hidden');
+            confirmBtn.disabled = true;
+            confirmBtn.className = "w-full py-4 rounded-2xl font-black text-base sm:text-lg transition-all duration-200 opacity-50 cursor-not-allowed bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md";
+
+            currentQNumEl.textContent = index + 1;
+            questionPrizeTitleEl.textContent = `الجائزة: ${q.prize} نقطة`;
+            questionCategoryEl.innerHTML = `<i class="fa-solid fa-leaf ml-1"></i> ${q.category}`;
+            questionTextEl.textContent = q.question;
+
+            lifelineFiftyBtn.disabled = state.usedFiftyFifty;
+            lifelineFiftyBtn.style.opacity = state.usedFiftyFifty ? '0.35' : '1';
+
+            lifelineHintBtn.disabled = state.usedHint;
+            lifelineHintBtn.style.opacity = state.usedHint ? '0.35' : '1';
+
+            lifelineSwapBtn.disabled = state.usedSwap;
+            lifelineSwapBtn.style.opacity = state.usedSwap ? '0.35' : '1';
+
+            renderOptions(q);
+            renderPrizeLadder();
+        }
+
+        function renderOptions(q) {
+            optionsContainer.innerHTML = '';
+            const optionLetters = ['أ', 'ب', 'ج', 'د'];
+
+            q.options.forEach((optText, optIdx) => {
+                const btn = document.createElement('button');
+                const isDisabled = state.disabledOptions.includes(optIdx);
+
+                btn.className = `option-card w-full p-3.5 sm:p-4 rounded-2xl flex items-center gap-3 text-right font-bold text-xs sm:text-base ${
+                    isDisabled ? 'opacity-20 cursor-not-allowed pointer-events-none' : ''
+                }`;
+
+                if (state.selectedOption === optIdx) {
+                    btn.classList.add('option-selected');
+                }
+
+                btn.innerHTML = `
+                    <span class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-slate-800 border border-slate-700 text-teal-400 font-extrabold flex items-center justify-center text-xs shrink-0">
+                        ${optionLetters[optIdx]}
+                    </span>
+                    <span class="text-slate-100 flex-grow">${optText}</span>
+                `;
+
+                btn.addEventListener('click', () => {
+                    if (isDisabled || state.isAnswerConfirmed) return;
+                    sounds.playClick();
+                    state.selectedOption = optIdx;
+
+                    // Direct CSS toggling for zero overhead
+                    const children = optionsContainer.children;
+                    for (let i = 0; i < children.length; i++) {
+                        if (i === optIdx) {
+                            children[i].classList.add('option-selected');
+                        } else {
+                            children[i].classList.remove('option-selected');
+                        }
+                    }
+
+                    confirmBtn.disabled = false;
+                    confirmBtn.className = "w-full py-4 rounded-2xl font-black text-base sm:text-lg transition-all duration-150 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 shadow-lg hover:scale-[1.01] active:scale-[0.99] cursor-pointer";
+                });
+
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        /* ==========================================================================
+           8. LIFELINES HANDLERS
+           ========================================================================== */
+        lifelineFiftyBtn.addEventListener('click', (e) => {
+            if (state.usedFiftyFifty || state.isAnswerConfirmed) return;
+            sounds.playCoin();
+
+            const q = state.questionsList[state.currentQIndex];
+            const wrongIndices = [];
+            q.options.forEach((_, idx) => {
+                if (idx !== q.correct) wrongIndices.push(idx);
+            });
+
+            const shuffled = wrongIndices.sort(() => 0.5 - Math.random());
+            state.disabledOptions = [shuffled[0], shuffled[1]];
+            state.usedFiftyFifty = true;
+
+            if (state.disabledOptions.includes(state.selectedOption)) {
+                state.selectedOption = null;
+                confirmBtn.disabled = true;
+                confirmBtn.className = "w-full py-4 rounded-2xl font-black text-base sm:text-lg transition-all duration-200 opacity-50 cursor-not-allowed bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md";
+            }
+
+            renderOptions(q);
+            lifelineFiftyBtn.disabled = true;
+            lifelineFiftyBtn.style.opacity = '0.35';
+        });
+
+        lifelineHintBtn.addEventListener('click', (e) => {
+            if (state.usedHint || state.isAnswerConfirmed) return;
+
+            if (state.coins < 50) {
+                alert('عذراً، رصيدك من الكوينز غير كافٍ! تحتاج إلى 50 كوينز.');
+                return;
+            }
+
+            sounds.playCoin();
+            updateCoins(-50);
+
+            const q = state.questionsList[state.currentQIndex];
+            hintText.textContent = q.hint;
+            hintBox.classList.remove('hidden');
+
+            state.usedHint = true;
+            lifelineHintBtn.disabled = true;
+            lifelineHintBtn.style.opacity = '0.35';
+        });
+
+        lifelineSwapBtn.addEventListener('click', () => {
+            if (state.usedSwap || state.isAnswerConfirmed) return;
+
+            if (state.coins < 100) {
+                alert('عذراً، رصيدك من الكوينز غير كافٍ! تحتاج إلى 100 كوينز.');
+                return;
+            }
+
+            sounds.playCoin();
+            updateCoins(-100);
+
+            state.questionsList[state.currentQIndex] = { ...backupQuestion };
+            state.usedSwap = true;
+            loadQuestion(state.currentQIndex);
+        });
+
+        /* ==========================================================================
+           9. CONFIRM ANSWER & MULTI-STAGE CELEBRATIONS
+           ========================================================================== */
+        confirmBtn.addEventListener('click', (e) => {
+            if (state.selectedOption === null || state.isAnswerConfirmed) return;
+
+            state.isAnswerConfirmed = true;
+            confirmBtn.disabled = true;
+            confirmBtn.classList.add('opacity-50');
+
+            const q = state.questionsList[state.currentQIndex];
+            const isCorrect = state.selectedOption === q.correct;
+            const optionButtons = Array.from(optionsContainer.children);
+
+            optionButtons.forEach((btn, idx) => {
+                btn.classList.remove('option-selected');
+                if (idx === q.correct) {
+                    btn.classList.add('option-correct');
+                } else if (idx === state.selectedOption && !isCorrect) {
+                    btn.classList.add('option-wrong');
+                }
+            });
+
+            setTimeout(() => {
+                if (isCorrect) {
+                    sounds.playCorrect();
+                    updateStreak(true);
+                    
+                    const rect = confirmBtn.getBoundingClientRect();
+                    updateCoins(q.coinsReward, { x: rect.left + rect.width / 2, y: rect.top });
+
+                    // Fire Confetti Burst
+                    fireCorrectConfetti();
+
+                    showModal({
+                        type: 'correct',
+                        title: 'إجابة صحيحة ورائعة! 🎉',
+                        subtitle: `أحسنت! كسبت +${q.coinsReward} كوينز ${state.streak > 1 ? `مجموع سلسلتك الحالية ${state.streak} إجابات متتالية! 🔥` : ''}`,
+                        explanation: q.explanation,
+                        btnText: state.currentQIndex === state.questionsList.length - 1 ? 'عرض وسام الفوز والتكريم 🏆' : 'الانتقال للسؤال التالي ⬅️'
+                    });
+                } else {
+                    sounds.playWrong();
+                    updateStreak(false);
+
+                    showModal({
+                        type: 'wrong',
+                        title: 'إجابة خاطئة! ❌',
+                        subtitle: `للأسف الإجابة غير صحيحة. حاول مرة أخرى واكتسب المزيد من المعرفة الصحية!`,
+                        explanation: q.explanation,
+                        btnText: 'إعادة التحدي من جديد 🔄'
+                    });
+                }
+            }, 500);
+        });
+
+        /* ==========================================================================
+           10. CELEBRATION ENGINES (CONFETTI & FIREWORKS)
+           ========================================================================== */
+        function fireCorrectConfetti() {
+            confetti({
+                particleCount: 45,
+                spread: 60,
+                origin: { y: 0.7 },
+                colors: ['#06D6A0', '#118AB2', '#FFD166'],
+                disableForReducedMotion: true
+            });
+        }
+
+        function triggerGrandVictoryCelebration() {
+            sounds.playVictory();
+
+            // Multi-Stage Cannon Blast Sequence
+            const duration = 2.5 * 1000;
+            const animationEnd = Date.now() + duration;
+
+            const interval = setInterval(function() {
+                const timeLeft = animationEnd - Date.now();
+
+                if (timeLeft <= 0) {
+                    return clearInterval(interval);
+                }
+
+                const particleCount = 40 * (timeLeft / duration);
+                
+                // Left & Right Cannons
+                confetti({
+                    particleCount: particleCount,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0, y: 0.65 },
+                    colors: ['#06D6A0', '#FFD166', '#EF476F', '#118AB2']
+                });
+                confetti({
+                    particleCount: particleCount,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1, y: 0.65 },
+                    colors: ['#06D6A0', '#FFD166', '#EF476F', '#118AB2']
+                });
+            }, 250);
+        }
+
+        /* ==========================================================================
+           11. RESULT MODAL DISPLAY
+           ========================================================================== */
+        function showModal({ type, title, subtitle, explanation, btnText }) {
+            modalTitle.textContent = title;
+            modalSubtitle.textContent = subtitle;
+            explanationText.textContent = explanation;
+            modalNextBtn.textContent = btnText;
+
+            if (type === 'correct') {
+                modalIconBg.className = "w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 rounded-3xl bg-teal-500/20 text-teal-400 border border-teal-500/40 flex items-center justify-center text-3xl sm:text-4xl shadow-md";
+                modalIcon.className = "fa-solid fa-circle-check";
+                modalTitle.className = "text-xl sm:text-3xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-teal-300 to-emerald-400";
+            } else if (type === 'wrong') {
+                modalIconBg.className = "w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 rounded-3xl bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center justify-center text-3xl sm:text-4xl shadow-md";
+                modalIcon.className = "fa-solid fa-circle-xmark";
+                modalTitle.className = "text-xl sm:text-3xl font-black mb-2 text-rose-400";
+            } else if (type === 'win') {
+                modalIconBg.className = "w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 rounded-3xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center text-3xl sm:text-4xl shadow-md";
+                modalIcon.className = "fa-solid fa-trophy text-amber-300 animate-bounce";
+                modalTitle.className = "text-xl sm:text-3xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-400 to-teal-300";
+            }
+
+            resultModal.classList.remove('hidden');
+
+            modalNextBtn.onclick = () => {
+                sounds.playClick();
+                resultModal.classList.add('hidden');
+
+                if (type === 'correct') {
+                    if (state.currentQIndex < state.questionsList.length - 1) {
+                        state.currentQIndex++;
+                        loadQuestion(state.currentQIndex);
+                    } else {
+                        // Grand Winner Celebration
+                        triggerGrandVictoryCelebration();
+                        showModal({
+                            type: 'win',
+                            title: '🏆 بطل نمط الحياة الصحي!',
+                            subtitle: `مبارك لك! أتممت جميع الأسئلة الـ 10 بنجاح وحصلت على وسام الصحة الذهبي برصيد ${state.coins} كوينز!`,
+                            explanation: "أنت الآن تمتك المعرفة الأساسية لاتباع تغذية متوازنة، ممارسة النشاط البدني، المحافظة على جودة النوم والنظافة وإدارة الضغوط!",
+                            btnText: 'لعب جولة جديدة 🔄'
+                        });
+                    }
+                } else {
+                    initGame();
+                }
+            };
+        }
+
+        /* ==========================================================================
+           12. OPTIMIZED FLOATING PARTICLES CANVAS (60 FPS ULTRA LIGHTWEIGHT)
+           ========================================================================== */
+        const canvas = document.getElementById('bgCanvas');
+        const ctx = canvas.getContext('2d', { alpha: true });
+
+        let particles = [];
+        let isPageActive = true;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.radius = Math.random() * 1.8 + 0.8;
+                this.vx = (Math.random() - 0.5) * 0.25;
+                this.vy = (Math.random() - 0.5) * 0.25;
+                this.alpha = Math.random() * 0.3 + 0.1;
+                this.color = Math.random() > 0.5 ? '#06D6A0' : '#118AB2';
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+                    this.reset();
+                }
+            }
+
+            draw() {
+                ctx.globalAlpha = this.alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        // Lightweight pool of 16 particles for ultra performance
+        for (let i = 0; i < 16; i++) {
+            particles.push(new Particle());
+        }
+
+        function animateBg() {
+            if (isPageActive) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                for (let i = 0; i < particles.length; i++) {
+                    particles[i].update();
+                    particles[i].draw();
+                }
+            }
+            requestAnimationFrame(animateBg);
+        }
+
+        // Pause animation on page hide to save battery and GPU cycles
+        document.addEventListener('visibilitychange', () => {
+            isPageActive = !document.hidden;
+        });
+
+        window.onload = () => {
+            animateBg();
+        };
+
+    </script>
+</body>
+</html>
